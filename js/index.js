@@ -61,135 +61,159 @@ const data = [
   }
 ]
 
-function getNotFriendsList(idsList, person) {
-  const notFriendsList = []
-  for (let i = 0; notFriendsList.length < 3; i++) {
-    if (!person.friends.includes(idsList[i])) {
-      notFriendsList.push(idsList[i])
+class App {
+  static #hasInstance = false
+  static #instance = null
+
+  constructor(config) {
+    if (App.#hasInstance) {
+      console.warn('Instance is already exist. Returning existing instance')
+      return App.#instance
     }
+    const { data, selectors } = config
+    const { container, contactsList, detailsList, backButton, nameWrapper } = selectors
+    this.container = document.querySelector(container)
+    this.contactsList = document.querySelector(contactsList)
+    this.detailsList = document.querySelector(detailsList)
+    this.backButton = document.querySelector(backButton)
+    this.nameWrapper = document.querySelector(nameWrapper)
+    this.data = data
+    this.allIds = data.map(person => person.id)
+    this.mappedData = this.getMappedData(data)
+    this.popularPeople = this.getPopularPeopleList(3)
+    this.initApp()
+    App.#instance = this
+    App.#hasInstance = true
   }
-  return notFriendsList
-}
 
-function getMappedData(data) {
-	const res = {}
-  const allIds = data.map(person => person.id)
-
-	data.forEach(person => {
-  	const notFriends = getNotFriendsList(allIds, person)
-    
-    if (res[person.id]) {
-    	res[person.id] = {...person, ...res[person.id], notFriends}
-     } else {
-     	res[person.id] = {...person, notFriends, popularity: 0}
-     }
-    
-    person.friends.forEach(friendId => {
-    	if (res[friendId]) {
-        res[friendId] = {...res[friendId], popularity: ++res[friendId].popularity}
-      } else {
-      	res[friendId] = {popularity: 1}
+  getNotFriendsList(person, quantity = 3) {
+    const notFriendsList = []
+    for (let i = 0; notFriendsList.length < quantity; i++) {
+      if (!person.friends.includes(this.allIds[i])) {
+        notFriendsList.push(this.allIds[i])
       }
-    })
-  	
-  })
-  return res
-}
-
-function getFirstPopularPeople(n, mappedData) {
-  return Object.values(mappedData).sort((a, b) => {
-    if (a.popularity === b.popularity) {
-      if (a.name < b.name) {
-        return -1
-      } else if (a.name > b.name) {
-        return 1
-      } else {
-        return 0
-      }
-    } else {
-      return b.popularity - a.popularity
     }
-  }).slice(0, n)
-}
-
-function renderListItem(person) {
-  return `
-    <li data-id="${person.id}">
-      <strong>${person.name}</strong>
-    </li>
-  `
-}
-
-function renderContactsList(mappedData) {
-  let listContent = ''
-  Object.values(mappedData).forEach(person => {
-    listContent += renderListItem(person)
-  })
-  return listContent
-}
-
-function renderDetailsListItem(person) {
-  return `
-    <li>
-      <i class="fa fa-male"></i>
-      <span >${person.name}</span>
-    </li>
-  `
-}
-
-function renderDetailsListTitle(title) {
-  return `
-    <li class="people-title">${title}</li>
-  `
-}
-
-function renderDetailsList(personId, mappedData, popularPeople) {
-  let listContent = ''
-  const person = mappedData[personId]
-  listContent += renderDetailsListTitle('Друзья')
-  listContent += person.friends.reduce((acc, friendId) => acc + renderDetailsListItem(mappedData[friendId]),'')
-  listContent += renderDetailsListTitle('Не в друзьях')
-  listContent += person.notFriends.reduce((acc, humanId) => acc + renderDetailsListItem(mappedData[humanId]),'')
-  listContent += renderDetailsListTitle('Популярные люди')
-  listContent += popularPeople.reduce((acc, human) => acc + renderDetailsListItem(human),'')
-  return listContent
-}
-
-function showDetails(evt, options) {
-  const {mappedData, detailsList, nameWrapper, popularPeople, container} = options
-  const target = evt.target
-  const id = target.dataset.id || target.closest('li').dataset.id
-  const isListItem = Boolean(id)
-  if (isListItem) {
-    container.classList.add('details')
-    nameWrapper.innerHTML = mappedData[id].name
-    detailsList.innerHTML = renderDetailsList(id, mappedData, popularPeople)
+    return notFriendsList
   }
-}
 
-function showContacts(container) {
-  container.classList.remove('details')
-}
-
-function init() {
-  const mappedData = getMappedData(data)
-  const popularPeople = getFirstPopularPeople(3, mappedData)
-  const contactsList = document.querySelector('.contacts-list')
-  const detailsList = document.querySelector('.details-list')
-  const backButton = document.querySelector('#container .details-view .back')
-  const nameWrapper = document.querySelector('.background span')
-  const container = document.querySelector('#container')
-  contactsList.innerHTML = renderContactsList(mappedData)
-
-  contactsList.addEventListener('click', (evt) => {
-    const options = { container, mappedData, detailsList, nameWrapper, popularPeople }
-    showDetails(evt, options)
-  })
+  getMappedData(data) {
+    const res = {}
   
-  backButton.addEventListener('click', () => showContacts(container))
+    data.forEach(person => {
+      const notFriends = this.getNotFriendsList(person, 3)
+      
+      if (res[person.id]) {
+        res[person.id] = {...person, ...res[person.id], notFriends}
+       } else {
+         res[person.id] = {...person, notFriends, popularity: 0}
+       }
+      
+      person.friends.forEach(friendId => {
+        if (res[friendId]) {
+          res[friendId] = {...res[friendId], popularity: ++res[friendId].popularity}
+        } else {
+          res[friendId] = {popularity: 1}
+        }
+      })
+      
+    })
+    return res
+  }
+
+  getPopularPeopleList(quantity = 3) {
+    return Object.values(this.mappedData).sort((a, b) => {
+      if (a.popularity === b.popularity) {
+        if (a.name < b.name) {
+          return -1
+        } else if (a.name > b.name) {
+          return 1
+        } else {
+          return 0
+        }
+      } else {
+        return b.popularity - a.popularity
+      }
+    }).slice(0, quantity)
+  }
+
+  renderListItem(person) {
+    return `
+      <li data-id="${person.id}">
+        <strong>${person.name}</strong>
+      </li>
+    `
+  }
+
+  renderContactsList() {
+    let listContent = ''
+    Object.values(this.mappedData).forEach(person => {
+      listContent += this.renderListItem(person)
+    })
+    return listContent
+  }
+
+  renderDetailsListItem(person) {
+    return `
+      <li>
+        <i class="fa fa-male"></i>
+        <span >${person.name}</span>
+      </li>
+    `
+  }
+
+  renderDetailsListTitle(title) {
+    return `
+      <li class="people-title">${title}</li>
+    `
+  }
+
+  renderDetailsList(personId) {
+    let listContent = ''
+    const person = this.mappedData[personId]
+    listContent += this.renderDetailsListTitle('Друзья')
+    listContent += person.friends.reduce((acc, friendId) => acc + this.renderDetailsListItem(this.mappedData[friendId]),'')
+    listContent += this.renderDetailsListTitle('Не в друзьях')
+    listContent += person.notFriends.reduce((acc, humanId) => acc + this.renderDetailsListItem(this.mappedData[humanId]),'')
+    listContent += this.renderDetailsListTitle('Популярные люди')
+    listContent += this.popularPeople.reduce((acc, human) => acc + this.renderDetailsListItem(human),'')
+    return listContent
+  }
+
+  showDetails(evt) {
+    const target = evt.target
+    const id = target.dataset.id || target.closest('li').dataset.id
+    const isListItem = Boolean(id)
+    if (isListItem) {
+      this.container.classList.add('details')
+      this.nameWrapper.innerHTML = this.mappedData[id].name
+      this.detailsList.innerHTML = this.renderDetailsList(id)
+    }
+  }
+
+  hideDetails() {
+    this.container.classList.remove('details')
+  }
+
+  initApp() {
+    this.contactsList.innerHTML = this.renderContactsList(this.mappedData)
+    this.contactsList.addEventListener('click', this.showDetails.bind(this))
+    this.backButton.addEventListener('click', this.hideDetails.bind(this))
+  }
 }
 
-window.addEventListener('DOMContentLoaded', init)
+window.addEventListener('DOMContentLoaded', () => {
+  const config = {
+    data,
+    selectors: {
+      container: '#container',
+      contactsList: '.contacts-list', 
+      detailsList: '.details-list', 
+      backButton: '#container .details-view .back', 
+      nameWrapper: '.background span'
+    }
+  }
+  new App(config)
+})
 
 
 
